@@ -10,8 +10,8 @@ PROCNAME = "Spotify.exe"
 
 user32 = ctypes.WinDLL('user32')
 
-# add games and such so you don't get interrupted during a match
-exceptions = []
+# add
+exceptions = ['DDNet CLient']
 
 def get_window_title(hwnd):
     length = user32.GetWindowTextLengthW(hwnd)
@@ -47,30 +47,62 @@ def is_spotify_ad_window(hwnd):
     return "-" not in title and title != "Spotify Free"
 
 def open_and_run():
-
     # Don't wanna interrupt a match
     for exception in exceptions:
         if get_window_title(ctypes.windll.user32.GetForegroundWindow()) == exception:
             return False
-            
+
     ctypes.windll.user32.BlockInput(True)
 
+    # Kill existing Spotify
     for proc in psutil.process_iter():
         if proc.name() == PROCNAME:
             proc.kill()
 
-    # start spotify and skip so it doesn't restart the same song
-    time.sleep(0.2)
+    time.sleep(0.5)
     os.system("start spotify")
-    time.sleep(2)
+
+    # Wait until Spotify window is fully open
+    
+    def is_spotify_ready():
+        hwnds = []
+
+        def collect(hwnd, _):
+            hwnds.append(hwnd)
+        win32gui.EnumWindows(collect, None)
+
+        for hwnd in hwnds:
+            if win32gui.IsWindowVisible(hwnd):
+                i, pid = win32process.GetWindowThreadProcessId(hwnd)
+                
+                try:
+                    
+                    proc = psutil.Process(pid)
+                    if proc.name() == PROCNAME:
+                        title = get_window_title(hwnd)
+                        # Ads don't have a dash
+                        if "-" in title:
+                            return True
+                        
+                except psutil.NoSuchProcess:
+                    continue
+        return False
+
+	#extra 2 seconds
+    timeout = time.time() + 2
+    while not is_spotify_ready():
+        if time.time() > timeout:
+            break
+        time.sleep(0.2)
+
     pg.press('space')
     time.sleep(0.3)
     pg.hotkey('fn', 'f9')
 
-    #minimize
     ctypes.windll.user32.ShowWindow(ctypes.windll.user32.GetForegroundWindow(), 6)
     pg.click()
     ctypes.windll.user32.BlockInput(False)
+
 
 def check_window(hwnd, extra):
     if is_spotify_ad_window(hwnd):
