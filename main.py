@@ -10,7 +10,7 @@ PROCNAME = "Spotify.exe"
 
 user32 = ctypes.WinDLL('user32')
 
-# add
+# add games and such so you don't get interrupted during a match
 exceptions = []
 
 def get_window_title(hwnd):
