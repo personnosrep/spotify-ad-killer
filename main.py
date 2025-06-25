@@ -64,6 +64,7 @@ def open_and_run():
     os.system("start spotify")
     time.sleep(2)
     pg.press('space')
+    time.sleep(0.3)
     pg.hotkey('fn', 'f9')
 
     #minimize
