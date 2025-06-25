@@ -8,3 +8,4 @@ It checks the Spotify window title. If the title doesn’t have a dash (-), it m
 ## Notes:
 Only works on windows 10/11 (haven't tested on windows 10)
 This interrupts your screen for like 3 seconds so add some window names in exceptions for apps that you don't wanna be interrupted on (won't do anything when that app is in foreground)
+This was made for my own pc so it might not work if your device is slower (spotify may take too long to restart)
