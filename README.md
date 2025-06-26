@@ -1,6 +1,6 @@
 # spotify-ad-killer
 
-I made this because I kept seeing a ton of over-complicated versions of these in python that mute the ad, so I made my own in a hundred lines. This script automatically detects when a Spotify ad is playing and restarts Spotify to skip it.
+I made this because I kept seeing a ton of over-complicated versions of these in python that mute the ad, so I made my own in under a hundred lines. This script automatically detects when a Spotify ad is playing and restarts Spotify to skip it.
 
 ## How does it work?
 It checks the Spotify window title. If the title doesn’t have a dash (-), it means Spotify is either not playing a song (title shows "Spotify Free") or it’s playing an ad. When that happens, the script restarts Spotify and skips to the next track, so you don't replay the same song.
