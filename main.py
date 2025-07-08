@@ -1,99 +1,114 @@
+# UPDATED SCRIPT
+# Mutes Spotify during ads instead of restarting
+
 import win32gui
 import win32process
 import psutil
-import os
-import pyautogui as pg
 import time
 import ctypes
+from pycaw.pycaw import AudioUtilities, ISimpleAudioVolume
+from comtypes import CLSCTX_ALL
+import comtypes
 
 PROCNAME = "Spotify.exe"
 user32 = ctypes.WinDLL('user32')
-exceptions = ['DDNet Client']
+exceptions = []
+running = True
 
 def get_window_title(hwnd):
-    if not win32gui.IsWindow(hwnd):
-        return ""
-    
-    length = user32.GetWindowTextLengthW(hwnd)
-    if length == 0:
-        return ""
+	if not win32gui.IsWindow(hwnd):
+		return ""
+	
+	length = user32.GetWindowTextLengthW(hwnd)
+	if length == 0:
+		return ""
 
-    buffer = ctypes.create_unicode_buffer(length + 1)
-    user32.GetWindowTextW(hwnd, buffer, length + 1)
-    return buffer.value
+	buffer = ctypes.create_unicode_buffer(length + 1)
+	user32.GetWindowTextW(hwnd, buffer, length + 1)
+	return buffer.value
 
 def is_spotify_ad_window(hwnd):
-    if not win32gui.IsWindowVisible(hwnd):
-        return False
 
-    try:
-        _, pid = win32process.GetWindowThreadProcessId(hwnd)
-        proc = psutil.Process(pid)
-        if proc.name() != PROCNAME:
-            return False
-    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-        return False
+	if not win32gui.IsWindowVisible(hwnd):
+		return False
 
-    title = get_window_title(hwnd)
-    return "-" not in title and title != "Spotify Free"
+	try:
+		i, pid = win32process.GetWindowThreadProcessId(hwnd)
+		proc = psutil.Process(pid)
+		if proc.name() != PROCNAME:
+			return False
+		
+	except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+		return False
 
-def open_and_run():
-    # Don’t interrupt important stuff
-    foreground = ctypes.windll.user32.GetForegroundWindow()
-    fg_title = get_window_title(foreground)
-    if fg_title in exceptions:
-        return
+	title = get_window_title(hwnd)
+	return "-" not in title and title != "Spotify Free"
 
-    try:
-        # Kill Spotify
-        ctypes.windll.user32.BlockInput(True)
-        for proc in psutil.process_iter(['name']):
-            if proc.info['name'] == PROCNAME:
-                proc.kill()
+def get_spotify_sessions():
+	sessions = AudioUtilities.GetAllSessions()
+	return [s for s in sessions if s.Process and s.Process.name() == PROCNAME]
 
-        time.sleep(0.5)
-        os.system("start spotify")
+def mute_spotify(mute=True):
 
-        def is_spotify_ready():
-            hwnds = []
-            win32gui.EnumWindows(lambda hwnd, _: hwnds.append(hwnd), None)
-            for hwnd in hwnds:
-                if win32gui.IsWindowVisible(hwnd):
-                    try:
-                        _, pid = win32process.GetWindowThreadProcessId(hwnd)
-                        proc = psutil.Process(pid)
-                        if proc.name() == PROCNAME:
-                            title = get_window_title(hwnd)
-                            if "-" in title:
-                                return True
-                    except (psutil.NoSuchProcess, psutil.AccessDenied):
-                        continue
-            return False
-
-        timeout = time.time() + 1
-        while not is_spotify_ready():
-            if time.time() > timeout:
-                break
-            time.sleep(0.2)
-
-        pg.press('space')
-        time.sleep(0.3)
-        pg.press('nexttrack')
-
-        ctypes.windll.user32.ShowWindow(foreground, 6)  # Minimize
-        pg.click()
-
-    finally:
-        ctypes.windll.user32.BlockInput(False)
+	for session in get_spotify_sessions():
+		volume = session._ctl.QueryInterface(ISimpleAudioVolume)
+		volume.SetMute(mute, None)
 
 def check_window(hwnd, extra):
-    if is_spotify_ad_window(hwnd):
-        open_and_run()
+	global was_muted
+
+	if is_spotify_ad_window(hwnd):
+		if not was_muted:
+			mute_spotify(True)
+			was_muted = True
+	else:
+		if was_muted:
+			mute_spotify(False)
+			was_muted = False
+
+def get_hwnd():
+	hwnds = []
+	win32gui.EnumWindows(lambda hwnd, _: hwnds.append(hwnd), None)
+	for hwnd in hwnds:
+		if win32gui.IsWindowVisible(hwnd):
+			try:
+				_, pid = win32process.GetWindowThreadProcessId(hwnd)
+				proc = psutil.Process(pid)
+				if proc.name() == PROCNAME:
+					title = get_window_title(hwnd)
+					if title:  # skip empty titles
+						return hwnd
+			except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+				continue
+	return None
+
 
 def main():
-    while True:
-        win32gui.EnumWindows(check_window, None)
-        time.sleep(0.1)
+	import comtypes
+	comtypes.CoInitialize()
+
+	global was_muted
+	was_muted = False
+
+	while True:
+		if not running:
+			continue
+
+		hwnd = get_hwnd()
+		if hwnd:
+			if is_spotify_ad_window(hwnd):
+				if not was_muted:
+					mute_spotify(True)
+					was_muted = True
+					print("Muted")
+			else:
+				if was_muted:
+					mute_spotify(False)
+					was_muted = False
+					print("Unmuted")
+
+		time.sleep(0.3)
+
 
 if __name__ == "__main__":
-    main()
+	main()
